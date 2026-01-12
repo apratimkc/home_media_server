@@ -1,0 +1,22 @@
+{
+  "name": "@home-media-server/shared",
+  "version": "1.0.0",
+  "description": "Shared types, utilities, and services for Home Media Server",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "date-fns": "^3.0.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "home-media-server",
+  "version": "1.0.0",
+  "description": "Cross-platform local network file sharing for Windows and Android",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "electron:dev": "yarn workspace electron-app dev",
+    "electron:build": "yarn workspace electron-app build",
+    "mobile:android": "yarn workspace mobile-app android",
+    "mobile:start": "yarn workspace mobile-app start",
+    "lint": "eslint packages --ext .ts,.tsx",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json}\""
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.3.0"
+  },
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
