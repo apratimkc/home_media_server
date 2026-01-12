@@ -3,7 +3,7 @@
  * Handles background downloads with progress tracking
  */
 
-import RNBackgroundDownloader, { DownloadTask } from 'react-native-background-downloader';
+import RNBackgroundDownloader, { DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import RNFS from 'react-native-fs';
 import { useDownloadsStore, Download } from '@home-media-server/shared';
 

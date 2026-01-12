@@ -18,17 +18,16 @@
 | Phase 8: Share Configuration UI | 🔲 Not Started | 0% |
 | Phase 9: Polish & Testing | 🔲 Not Started | 0% |
 
-**Overall: ~11% Complete**
+**Overall: ~15% Complete**
 
 ---
 
 ## To-Do List
 
 ### Immediate Tasks (Next Up)
-- [ ] Install project dependencies (`yarn install`)
-- [ ] Build shared package (`yarn build`)
-- [ ] Test Windows app starts successfully
-- [ ] Fix any build/runtime errors
+- [ ] Test HTTP server endpoints
+- [ ] Test file browser UI functionality
+- [ ] Set up Android app build environment
 
 ### Phase 2: HTTP Server & File Browsing
 - [ ] Test Express server starts on port 8765
@@ -105,6 +104,20 @@
 
 ## Completed Tasks
 
+### Session 2: Dependency Fixes & Electron Startup ✅
+
+- [x] Install project dependencies (npm install)
+- [x] Build shared package
+- [x] Fix `react-native-background-downloader` → `@kesha-antonov/react-native-background-downloader`
+- [x] Fix `better-sqlite3` native compilation issue → replaced with `sql.js`
+- [x] Update database code for sql.js async API
+- [x] Fix TypeScript error in shared package (tsconfig types)
+- [x] Fix `electron-squirrel-startup` module not found error
+- [x] Diagnose and fix `ELECTRON_RUN_AS_NODE` environment issue
+- [x] Replace `uuid` library with Node.js `crypto.randomUUID()`
+- [x] Configure vite-plugin-electron with external dependencies
+- [x] Test Windows app starts successfully (database, mDNS working)
+
 ### Phase 1: Project Setup ✅
 
 - [x] Initialize Yarn workspaces monorepo
@@ -144,7 +157,8 @@
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| None yet | - | - |
+| ELECTRON_RUN_AS_NODE env var | Workaround | Must unset before running electron directly |
+| Network service crash on exit | Minor | Electron shows error on window close, doesn't affect functionality |
 
 ---
 
@@ -193,7 +207,15 @@ cd packages/shared && yarn build
 
 ## Changelog
 
-### 2026-01-12
+### 2026-01-12 (Session 2)
+- Fixed dependency issues (react-native-background-downloader, better-sqlite3)
+- Replaced better-sqlite3 with sql.js for cross-platform compatibility
+- Fixed Electron startup issues (ELECTRON_RUN_AS_NODE environment variable)
+- Replaced uuid library with native crypto.randomUUID()
+- Configured vite-plugin-electron with proper externals
+- Windows app now starts successfully with database and mDNS working
+
+### 2026-01-12 (Session 1)
 - Created project structure
 - Set up monorepo with Yarn workspaces
 - Created shared package with types and utilities

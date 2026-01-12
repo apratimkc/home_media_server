@@ -2,8 +2,8 @@
  * Shared folders database operations
  */
 
-import { getDatabase } from './index';
-import { v4 as uuidv4 } from 'uuid';
+import { getDatabase, runQuery } from './index';
+import crypto from 'crypto';
 import path from 'path';
 
 interface SharedFolder {
@@ -19,21 +19,23 @@ interface SharedFolder {
  */
 export function getSharedFolders(): SharedFolder[] {
   const db = getDatabase();
-  const stmt = db.prepare('SELECT * FROM shared_folders ORDER BY alias, path');
-  const rows = stmt.all() as Array<{
-    id: string;
-    path: string;
-    alias: string | null;
-    enabled: number;
-    added_at: string;
-  }>;
+  const result = db.exec('SELECT * FROM shared_folders ORDER BY alias, path');
 
-  return rows.map((row) => ({
-    id: row.id,
-    path: row.path,
-    alias: row.alias,
-    enabled: row.enabled === 1,
-    addedAt: new Date(row.added_at),
+  if (result.length === 0) return [];
+
+  const columns = result[0].columns;
+  const idIdx = columns.indexOf('id');
+  const pathIdx = columns.indexOf('path');
+  const aliasIdx = columns.indexOf('alias');
+  const enabledIdx = columns.indexOf('enabled');
+  const addedAtIdx = columns.indexOf('added_at');
+
+  return result[0].values.map((row) => ({
+    id: row[idIdx] as string,
+    path: row[pathIdx] as string,
+    alias: row[aliasIdx] as string | null,
+    enabled: row[enabledIdx] === 1,
+    addedAt: new Date(row[addedAtIdx] as string),
   }));
 }
 
@@ -42,23 +44,24 @@ export function getSharedFolders(): SharedFolder[] {
  */
 export function getSharedFolderById(id: string): SharedFolder | null {
   const db = getDatabase();
-  const stmt = db.prepare('SELECT * FROM shared_folders WHERE id = ?');
-  const row = stmt.get(id) as {
-    id: string;
-    path: string;
-    alias: string | null;
-    enabled: number;
-    added_at: string;
-  } | undefined;
+  const result = db.exec('SELECT * FROM shared_folders WHERE id = ?', [id]);
 
-  if (!row) return null;
+  if (result.length === 0 || result[0].values.length === 0) return null;
+
+  const columns = result[0].columns;
+  const row = result[0].values[0];
+  const idIdx = columns.indexOf('id');
+  const pathIdx = columns.indexOf('path');
+  const aliasIdx = columns.indexOf('alias');
+  const enabledIdx = columns.indexOf('enabled');
+  const addedAtIdx = columns.indexOf('added_at');
 
   return {
-    id: row.id,
-    path: row.path,
-    alias: row.alias,
-    enabled: row.enabled === 1,
-    addedAt: new Date(row.added_at),
+    id: row[idIdx] as string,
+    path: row[pathIdx] as string,
+    alias: row[aliasIdx] as string | null,
+    enabled: row[enabledIdx] === 1,
+    addedAt: new Date(row[addedAtIdx] as string),
   };
 }
 
@@ -66,16 +69,14 @@ export function getSharedFolderById(id: string): SharedFolder | null {
  * Add a shared folder
  */
 export function addSharedFolder(folderPath: string, alias?: string): SharedFolder {
-  const db = getDatabase();
-  const id = uuidv4();
+  const id = crypto.randomUUID();
   const folderAlias = alias || path.basename(folderPath);
+  const now = new Date().toISOString();
 
-  const stmt = db.prepare(`
-    INSERT INTO shared_folders (id, path, alias, enabled, added_at)
-    VALUES (?, ?, ?, 1, datetime('now'))
-  `);
-
-  stmt.run(id, folderPath, folderAlias);
+  runQuery(
+    'INSERT INTO shared_folders (id, path, alias, enabled, added_at) VALUES (?, ?, ?, 1, ?)',
+    [id, folderPath, folderAlias, now]
+  );
 
   return {
     id,
@@ -91,9 +92,12 @@ export function addSharedFolder(folderPath: string, alias?: string): SharedFolde
  */
 export function removeSharedFolder(id: string): boolean {
   const db = getDatabase();
-  const stmt = db.prepare('DELETE FROM shared_folders WHERE id = ?');
-  const result = stmt.run(id);
-  return result.changes > 0;
+  const before = db.exec('SELECT COUNT(*) FROM shared_folders WHERE id = ?', [id]);
+  const countBefore = before.length > 0 ? (before[0].values[0][0] as number) : 0;
+
+  runQuery('DELETE FROM shared_folders WHERE id = ?', [id]);
+
+  return countBefore > 0;
 }
 
 /**
@@ -103,8 +107,6 @@ export function updateSharedFolder(
   id: string,
   updates: Partial<Pick<SharedFolder, 'alias' | 'enabled'>>
 ): boolean {
-  const db = getDatabase();
-
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
@@ -121,20 +123,17 @@ export function updateSharedFolder(
   if (setClauses.length === 0) return false;
 
   values.push(id);
-  const stmt = db.prepare(`UPDATE shared_folders SET ${setClauses.join(', ')} WHERE id = ?`);
-  const result = stmt.run(...values);
+  runQuery(`UPDATE shared_folders SET ${setClauses.join(', ')} WHERE id = ?`, values);
 
-  return result.changes > 0;
+  return true;
 }
 
 /**
  * Toggle folder enabled state
  */
 export function toggleFolderEnabled(id: string): boolean {
-  const db = getDatabase();
-  const stmt = db.prepare('UPDATE shared_folders SET enabled = NOT enabled WHERE id = ?');
-  const result = stmt.run(id);
-  return result.changes > 0;
+  runQuery('UPDATE shared_folders SET enabled = NOT enabled WHERE id = ?', [id]);
+  return true;
 }
 
 /**
@@ -142,7 +141,6 @@ export function toggleFolderEnabled(id: string): boolean {
  */
 export function folderPathExists(folderPath: string): boolean {
   const db = getDatabase();
-  const stmt = db.prepare('SELECT id FROM shared_folders WHERE path = ?');
-  const row = stmt.get(folderPath);
-  return !!row;
+  const result = db.exec('SELECT id FROM shared_folders WHERE path = ?', [folderPath]);
+  return result.length > 0 && result[0].values.length > 0;
 }

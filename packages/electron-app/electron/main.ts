@@ -8,8 +8,13 @@ import { getSettings, saveSettings } from './database/settings';
 let mainWindow: BrowserWindow | null = null;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
+// Only used in production builds with Squirrel installer
+try {
+  if (require('electron-squirrel-startup')) {
+    app.quit();
+  }
+} catch {
+  // Module not available in development
 }
 
 const createWindow = () => {
@@ -38,8 +43,8 @@ const createWindow = () => {
 
 // Initialize app
 app.whenReady().then(async () => {
-  // Initialize database
-  initDatabase();
+  // Initialize database (async now with sql.js)
+  await initDatabase();
 
   // Get settings
   const settings = getSettings();

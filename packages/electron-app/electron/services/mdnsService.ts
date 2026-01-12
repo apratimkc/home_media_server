@@ -5,7 +5,7 @@
 
 import Bonjour, { Service, Browser } from 'bonjour';
 import { BrowserWindow } from 'electron';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 const SERVICE_TYPE = 'homemedia';
 
@@ -34,7 +34,7 @@ export function startMdnsService(deviceName: string, port: number): void {
   }
 
   bonjour = Bonjour();
-  const deviceId = uuidv4();
+  const deviceId = crypto.randomUUID();
 
   // Publish our service
   publishedService = bonjour.publish({
@@ -146,7 +146,7 @@ function notifyDeviceRemoved(deviceId: string): void {
 export function updateServiceName(newName: string, port: number): void {
   if (bonjour && publishedService) {
     publishedService.stop();
-    const deviceId = publishedService.txt?.deviceId || uuidv4();
+    const deviceId = publishedService.txt?.deviceId || crypto.randomUUID();
 
     publishedService = bonjour.publish({
       name: newName,

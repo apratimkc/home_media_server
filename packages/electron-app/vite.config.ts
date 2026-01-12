@@ -1,44 +1,44 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
+import electron from 'vite-plugin-electron/simple';
 import path from 'path';
 
 export default defineConfig({
   plugins: [
     react(),
-    electron([
-      {
+    electron({
+      main: {
         entry: 'electron/main.ts',
         vite: {
           build: {
             outDir: 'dist-electron',
+            minify: false,
             rollupOptions: {
-              external: ['better-sqlite3'],
+              // Keep these as external (not bundled)
+              external: [
+                'electron',
+                'sql.js',
+                'express',
+                'bonjour',
+                'chokidar',
+              ],
             },
           },
         },
       },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload();
-        },
+      preload: {
+        input: 'electron/preload.ts',
         vite: {
           build: {
             outDir: 'dist-electron',
           },
         },
       },
-    ]),
-    renderer(),
+    }),
   ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-  },
-  build: {
-    outDir: 'dist',
   },
 });
