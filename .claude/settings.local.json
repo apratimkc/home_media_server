@@ -40,7 +40,8 @@
       "Bash(tasklist:*)",
       "Bash(curl:*)",
       "Bash(timeout:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(npm run start)"
     ]
   }
 }
