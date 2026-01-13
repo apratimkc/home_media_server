@@ -9,7 +9,7 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 1: Project Setup | ✅ Complete | 100% |
-| Phase 2: HTTP Server & File Browsing | 🔄 In Progress | 60% |
+| Phase 2: HTTP Server & File Browsing | ✅ Complete | 100% |
 | Phase 3: mDNS Device Discovery | 🔄 In Progress | 50% |
 | Phase 4: Media Streaming & VLC | 🔲 Not Started | 0% |
 | Phase 5: Download System | 🔲 Not Started | 0% |
@@ -18,22 +18,22 @@
 | Phase 8: Share Configuration UI | 🔄 In Progress | 70% |
 | Phase 9: Polish & Testing | 🔲 Not Started | 0% |
 
-**Overall: ~25% Complete**
+**Overall: ~35% Complete**
 
 ---
 
 ## To-Do List
 
 ### Immediate Tasks (Next Up)
-- [ ] Test HTTP server endpoints
-- [ ] Test file browser UI functionality
+- [ ] Test VLC playback on Windows
+- [ ] Implement VLC intent on Android
 - [ ] Set up Android app build environment
 
-### Phase 2: HTTP Server & File Browsing
+### Phase 2: HTTP Server & File Browsing ✅ COMPLETE
 - [x] Test Express server starts on port 8765
 - [x] Verify file scanning works for shared folders
 - [x] Test `/api/v1/files` endpoint returns correct data
-- [ ] Test `/api/v1/stream/:id` endpoint streams files
+- [x] Test `/api/v1/stream/:id` endpoint streams files
 - [x] Verify file browser UI displays files correctly
 - [x] Test folder navigation (enter/back)
 - [x] Add loading states and error handling
@@ -104,7 +104,16 @@
 
 ## Completed Tasks
 
-### Session 3: Share UI, File Browser & mDNS Improvements ✅
+### Session 3 (Part 2): Phase 2 Complete - Streaming & VLC Integration ✅
+
+- [x] Improve VLC integration to find and launch VLC executable on Windows
+- [x] Test HTTP server endpoints (/api/v1/info, /api/v1/files)
+- [x] Test streaming endpoint with range requests (HTTP 206 Partial Content)
+- [x] Verify download endpoint with proper Content-Disposition headers
+- [x] Confirm CORS headers work for cross-origin requests
+- [x] Mark Phase 2 (HTTP Server & File Browsing) as complete
+
+### Session 3 (Part 1): Share UI, File Browser & mDNS Improvements ✅
 
 - [x] Fix Content Security Policy for local network connections
 - [x] Implement shared folders IPC handlers (add, remove, update, toggle)
@@ -220,7 +229,14 @@ cd packages/shared && yarn build
 
 ## Changelog
 
-### 2026-01-13 (Session 3)
+### 2026-01-13 (Session 3 - Part 2)
+- Improved VLC integration with direct executable launching on Windows
+- Tested and verified streaming endpoint with range request support (HTTP 206)
+- Tested download endpoint with proper attachment headers
+- Verified CORS headers for cross-origin API access
+- Completed Phase 2: HTTP Server & File Browsing (100%)
+
+### 2026-01-13 (Session 3 - Part 1)
 - Implemented Share page database integration (add/remove/toggle shared folders)
 - Added "This Device" to Discover page for browsing own files
 - Fixed Content Security Policy to allow local network API calls

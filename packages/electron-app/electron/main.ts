@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, session } from 'electron';
 import path from 'path';
+import { spawn } from 'child_process';
+import fs from 'fs';
 import { startServer, stopServer } from './server';
 import { startMdnsService, stopMdnsService, getDiscoveredDevices } from './services/mdnsService';
 import { initDatabase } from './database';
@@ -112,18 +114,44 @@ app.on('before-quit', async () => {
 // Open file with default application (VLC)
 ipcMain.handle('open-with-vlc', async (_event, url: string) => {
   try {
-    // Try VLC protocol first
-    const vlcUrl = `vlc://${url}`;
-    await shell.openExternal(vlcUrl);
-    return { success: true };
-  } catch {
-    // Fallback to regular URL
-    try {
-      await shell.openExternal(url);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
+    // Common VLC installation paths on Windows
+    const vlcPaths = [
+      'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+      'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe',
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'VideoLAN', 'VLC', 'vlc.exe'),
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'VideoLAN', 'VLC', 'vlc.exe'),
+    ];
+
+    // Find VLC executable
+    let vlcPath: string | null = null;
+    for (const pathToCheck of vlcPaths) {
+      if (fs.existsSync(pathToCheck)) {
+        vlcPath = pathToCheck;
+        break;
+      }
     }
+
+    if (vlcPath) {
+      // Launch VLC with the URL
+      spawn(vlcPath, [url], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+      return { success: true };
+    } else {
+      // VLC not found, try protocol handler
+      try {
+        const vlcUrl = `vlc://${url}`;
+        await shell.openExternal(vlcUrl);
+        return { success: true };
+      } catch {
+        // Final fallback: open in default browser
+        await shell.openExternal(url);
+        return { success: true };
+      }
+    }
+  } catch (error) {
+    return { success: false, error: `Failed to open VLC: ${String(error)}` };
   }
 });
 
