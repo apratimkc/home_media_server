@@ -13,6 +13,8 @@
     ]
   },
   "scripts": {
+    "start": "npm run electron:start",
+    "electron:start": "cd packages/electron-app && npm run start",
     "electron:dev": "yarn workspace electron-app dev",
     "electron:build": "yarn workspace electron-app build",
     "mobile:android": "yarn workspace mobile-app android",

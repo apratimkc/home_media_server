@@ -1,6 +1,6 @@
 # Home Media Server - Progress Tracker
 
-> Last Updated: January 12, 2026
+> Last Updated: January 13, 2026
 
 ---
 
@@ -9,16 +9,16 @@
 | Phase | Status | Progress |
 |-------|--------|----------|
 | Phase 1: Project Setup | ✅ Complete | 100% |
-| Phase 2: HTTP Server & File Browsing | 🔲 Not Started | 0% |
-| Phase 3: mDNS Device Discovery | 🔲 Not Started | 0% |
+| Phase 2: HTTP Server & File Browsing | 🔄 In Progress | 60% |
+| Phase 3: mDNS Device Discovery | 🔄 In Progress | 50% |
 | Phase 4: Media Streaming & VLC | 🔲 Not Started | 0% |
 | Phase 5: Download System | 🔲 Not Started | 0% |
 | Phase 6: Auto-Download | 🔲 Not Started | 0% |
 | Phase 7: Auto-Delete & Cleanup | 🔲 Not Started | 0% |
-| Phase 8: Share Configuration UI | 🔲 Not Started | 0% |
+| Phase 8: Share Configuration UI | 🔄 In Progress | 70% |
 | Phase 9: Polish & Testing | 🔲 Not Started | 0% |
 
-**Overall: ~15% Complete**
+**Overall: ~25% Complete**
 
 ---
 
@@ -30,20 +30,20 @@
 - [ ] Set up Android app build environment
 
 ### Phase 2: HTTP Server & File Browsing
-- [ ] Test Express server starts on port 8765
-- [ ] Verify file scanning works for shared folders
-- [ ] Test `/api/v1/files` endpoint returns correct data
+- [x] Test Express server starts on port 8765
+- [x] Verify file scanning works for shared folders
+- [x] Test `/api/v1/files` endpoint returns correct data
 - [ ] Test `/api/v1/stream/:id` endpoint streams files
-- [ ] Verify file browser UI displays files correctly
-- [ ] Test folder navigation (enter/back)
-- [ ] Add loading states and error handling
+- [x] Verify file browser UI displays files correctly
+- [x] Test folder navigation (enter/back)
+- [x] Add loading states and error handling
 
 ### Phase 3: mDNS Device Discovery
-- [ ] Test bonjour service publishes on Windows
-- [ ] Test bonjour discovers other devices
+- [x] Test bonjour service publishes on Windows
+- [x] Test bonjour discovers other devices
 - [ ] Implement react-native-zeroconf on Android
 - [ ] Test Android discovers Windows device
-- [ ] Handle device online/offline transitions
+- [x] Handle device online/offline transitions
 - [ ] Add manual device entry fallback
 
 ### Phase 4: Media Streaming & VLC
@@ -77,11 +77,11 @@
 - [ ] Show expiry info in Downloads UI
 
 ### Phase 8: Share Configuration UI
-- [ ] Implement folder picker (Windows)
+- [x] Implement folder picker (Windows)
 - [ ] Implement folder picker (Android - SAF)
-- [ ] Save shared folders to database
-- [ ] Show/hide folders from sharing
-- [ ] Display server status info
+- [x] Save shared folders to database
+- [x] Show/hide folders from sharing
+- [x] Display server status info
 
 ### Phase 9: Polish & Testing
 - [ ] Add app icons (Windows + Android)
@@ -103,6 +103,19 @@
 ---
 
 ## Completed Tasks
+
+### Session 3: Share UI, File Browser & mDNS Improvements ✅
+
+- [x] Fix Content Security Policy for local network connections
+- [x] Implement shared folders IPC handlers (add, remove, update, toggle)
+- [x] Connect Share page to database (persist shared folders)
+- [x] Add "This Device" entry to Discover page for self-browsing
+- [x] Fix mDNS to prefer IPv4 addresses over IPv6
+- [x] Fix HashRouter for Electron file:// protocol compatibility
+- [x] Add getDiscoveredDevices IPC to load devices on startup
+- [x] Improve mDNS shutdown to prevent EPIPE errors
+- [x] Add cross-env for reliable ELECTRON_RUN_AS_NODE handling
+- [x] Add npm start scripts for easier development
 
 ### Session 2: Dependency Fixes & Electron Startup ✅
 
@@ -157,8 +170,8 @@
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| ELECTRON_RUN_AS_NODE env var | Workaround | Must unset before running electron directly |
-| Network service crash on exit | Minor | Electron shows error on window close, doesn't affect functionality |
+| ELECTRON_RUN_AS_NODE env var | Fixed | Now handled via cross-env in package.json scripts |
+| Network service crash on exit | Fixed | Improved mDNS shutdown sequence prevents EPIPE errors |
 
 ---
 
@@ -206,6 +219,16 @@ cd packages/shared && yarn build
 ---
 
 ## Changelog
+
+### 2026-01-13 (Session 3)
+- Implemented Share page database integration (add/remove/toggle shared folders)
+- Added "This Device" to Discover page for browsing own files
+- Fixed Content Security Policy to allow local network API calls
+- Fixed mDNS to prefer IPv4 addresses (IPv6 link-local addresses caused issues)
+- Switched to HashRouter for Electron file:// protocol compatibility
+- Fixed mDNS shutdown to prevent EPIPE errors on app exit
+- Added cross-env package for reliable environment variable handling
+- Added npm start scripts for easier development workflow
 
 ### 2026-01-12 (Session 2)
 - Fixed dependency issues (react-native-background-downloader, better-sqlite3)

@@ -1,9 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, session } from 'electron';
 import path from 'path';
 import { startServer, stopServer } from './server';
-import { startMdnsService, stopMdnsService } from './services/mdnsService';
+import { startMdnsService, stopMdnsService, getDiscoveredDevices } from './services/mdnsService';
 import { initDatabase } from './database';
 import { getSettings, saveSettings } from './database/settings';
+import {
+  getSharedFolders,
+  addSharedFolder,
+  removeSharedFolder,
+  updateSharedFolder,
+  toggleFolderEnabled,
+} from './database/sharedFolders';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -34,15 +41,35 @@ const createWindow = () => {
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173');
-    mainWindow.webContents.openDevTools();
   } else {
     // In production, load the built index.html
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  // Only open DevTools in development mode
+  if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools();
   }
 };
 
 // Initialize app
 app.whenReady().then(async () => {
+  // Configure Content Security Policy to allow local network connections
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+          "connect-src 'self' http://localhost:* http://127.0.0.1:* http://192.168.*:* http://10.*:* http://172.16.*:* ws://localhost:* ws://127.0.0.1:*; " +
+          "img-src 'self' data: blob:; " +
+          "media-src 'self' http://localhost:* http://127.0.0.1:* http://192.168.*:* http://10.*:* http://172.16.*:* blob:; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+        ]
+      }
+    });
+  });
+
   // Initialize database (async now with sql.js)
   await initDatabase();
 
@@ -125,4 +152,44 @@ ipcMain.handle('restart-server', async (_event, port: number) => {
   await stopServer();
   await startServer(port);
   return { success: true };
+});
+
+// Shared Folders IPC Handlers
+
+// Get all shared folders
+ipcMain.handle('get-shared-folders', () => {
+  return getSharedFolders();
+});
+
+// Add a shared folder
+ipcMain.handle('add-shared-folder', (_event, folderPath: string, alias?: string) => {
+  try {
+    const folder = addSharedFolder(folderPath, alias);
+    return { success: true, folder };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Remove a shared folder
+ipcMain.handle('remove-shared-folder', (_event, folderId: string) => {
+  const removed = removeSharedFolder(folderId);
+  return { success: removed };
+});
+
+// Update a shared folder
+ipcMain.handle('update-shared-folder', (_event, folderId: string, updates: { alias?: string; enabled?: boolean }) => {
+  const updated = updateSharedFolder(folderId, updates);
+  return { success: updated };
+});
+
+// Toggle folder enabled state
+ipcMain.handle('toggle-folder-enabled', (_event, folderId: string) => {
+  const toggled = toggleFolderEnabled(folderId);
+  return { success: toggled };
+});
+
+// Get discovered devices
+ipcMain.handle('get-discovered-devices', () => {
+  return getDiscoveredDevices();
 });

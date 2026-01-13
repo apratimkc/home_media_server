@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDevicesStore, useFilesStore, Device, MediaFile } from '@home-media-server/shared';
 import { DeviceApiClient } from '@home-media-server/shared';
 import { formatFileSize } from '@home-media-server/shared';
@@ -18,19 +18,55 @@ function DiscoverPage() {
   const clear = useFilesStore((state) => state.clear);
 
   const [apiClient, setApiClient] = useState<DeviceApiClient | null>(null);
+  const [thisDevice, setThisDevice] = useState<Device | null>(null);
+
+  // Load this device info on mount
+  useEffect(() => {
+    const loadThisDevice = async () => {
+      try {
+        const settings = await window.electronAPI.getSettings();
+        if (settings.shareEnabled) {
+          setThisDevice({
+            id: 'localhost',
+            name: `${settings.deviceName} (This Device)`,
+            ip: '127.0.0.1',
+            port: (settings.serverPort as number) || 8765,
+            platform: 'windows',
+            isOnline: true,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load device info:', error);
+      }
+    };
+    loadThisDevice();
+  }, []);
 
   const handleDeviceClick = async (device: Device) => {
     clear();
     selectDevice(device);
-    const client = new DeviceApiClient(device.ip, device.port);
+    // Use localhost for "This Device" to avoid IPv6 issues
+    const ip = device.id === 'localhost' ? '127.0.0.1' : device.ip;
+    console.log('Connecting to device:', device.name, 'at', ip, ':', device.port);
+    const client = new DeviceApiClient(ip, device.port);
     setApiClient(client);
 
     setLoading(true);
     try {
+      console.log('Fetching files from /', `http://${ip}:${device.port}/api/v1/files?path=/`);
       const response = await client.listFiles('/');
-      setFiles(response.items as MediaFile[], '/');
+      console.log('Response:', response);
+      console.log('Items:', response.items);
+      if (response.items && response.items.length > 0) {
+        console.log('Setting files:', response.items.length, 'items');
+        setFiles(response.items as MediaFile[], '/');
+      } else {
+        console.log('No items in response or empty array');
+        setFiles([], '/');
+      }
     } catch (error) {
       console.error('Failed to load files:', error);
+      alert('Failed to load files: ' + (error instanceof Error ? error.message : String(error)));
       setLoading(false);
     }
   };
@@ -111,33 +147,37 @@ function DiscoverPage() {
       {!selectedDevice ? (
         // Device List
         <div>
-          {devices.length === 0 ? (
-            <div className="empty-state">
-              <div className="icon">📡</div>
-              <h3>No devices found</h3>
-              <p>Make sure other devices are running Home Media Server on your network</p>
-            </div>
-          ) : (
-            <div className="grid grid-3">
-              {devices.map((device) => (
-                <div
-                  key={device.id}
-                  className="device-card"
-                  onClick={() => handleDeviceClick(device)}
-                >
-                  <div className="device-icon">{device.platform === 'windows' ? '💻' : '📱'}</div>
-                  <div className="device-info">
-                    <div className="device-name">{device.name}</div>
-                    <div className="device-status">
-                      <span className={`status-dot ${device.isOnline ? '' : 'offline'}`}></span>
-                      {device.isOnline ? 'Online' : 'Offline'}
-                      {device.sharedFilesCount !== undefined && ` • ${device.sharedFilesCount} files`}
+          {/* Combine thisDevice with discovered devices */}
+          {(() => {
+            const allDevices = thisDevice ? [thisDevice, ...devices] : devices;
+            return allDevices.length === 0 ? (
+              <div className="empty-state">
+                <div className="icon">📡</div>
+                <h3>No devices found</h3>
+                <p>Enable sharing in the Share tab to browse your own files, or wait for other devices on your network</p>
+              </div>
+            ) : (
+              <div className="grid grid-3">
+                {allDevices.map((device) => (
+                  <div
+                    key={device.id}
+                    className="device-card"
+                    onClick={() => handleDeviceClick(device)}
+                  >
+                    <div className="device-icon">{device.platform === 'windows' ? '💻' : '📱'}</div>
+                    <div className="device-info">
+                      <div className="device-name">{device.name}</div>
+                      <div className="device-status">
+                        <span className={`status-dot ${device.isOnline ? '' : 'offline'}`}></span>
+                        {device.isOnline ? 'Online' : 'Offline'}
+                        {device.sharedFilesCount !== undefined && ` • ${device.sharedFilesCount} files`}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </div>
       ) : (
         // File Browser

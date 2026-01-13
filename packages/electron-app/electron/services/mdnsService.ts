@@ -59,10 +59,15 @@ export function startMdnsService(deviceName: string, port: number): void {
       return;
     }
 
+    // Prefer IPv4 address over IPv6 (IPv6 link-local addresses don't work well)
+    const addresses = service.addresses || [];
+    const ipv4 = addresses.find((addr: string) => !addr.includes(':'));
+    const ip = ipv4 || addresses[0] || '';
+
     const device: DiscoveredDevice = {
       id: service.txt?.deviceId || service.name,
       name: service.name,
-      ip: service.addresses?.[0] || '',
+      ip: ip,
       port: service.port,
       platform: (service.txt?.platform as 'windows' | 'android') || 'windows',
     };
@@ -94,23 +99,35 @@ export function startMdnsService(deviceName: string, port: number): void {
  * Stop mDNS service
  */
 export function stopMdnsService(): void {
-  if (publishedService) {
-    publishedService.stop();
-    publishedService = null;
-  }
+  try {
+    if (browser) {
+      browser.stop();
+      browser = null;
+    }
 
-  if (browser) {
-    browser.stop();
-    browser = null;
-  }
+    if (publishedService) {
+      publishedService.stop();
+      publishedService = null;
+    }
 
-  if (bonjour) {
-    bonjour.destroy();
-    bonjour = null;
-  }
+    // Delay destroy to allow pending operations to complete
+    // This prevents EPIPE errors when the process is shutting down
+    if (bonjour) {
+      const bonjourInstance = bonjour;
+      bonjour = null;
+      setTimeout(() => {
+        try {
+          bonjourInstance.destroy();
+        } catch {
+          // Ignore errors during final cleanup
+        }
+      }, 100);
+    }
 
-  discoveredDevices.clear();
-  console.log('mDNS: Service stopped');
+    discoveredDevices.clear();
+  } catch {
+    // Ignore errors during shutdown
+  }
 }
 
 /**

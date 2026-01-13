@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 interface SharedFolder {
   id: string;
   path: string;
-  alias: string;
+  alias: string | null;
   enabled: boolean;
 }
 
@@ -11,19 +11,26 @@ function SharePage() {
   const [shareEnabled, setShareEnabled] = useState(false);
   const [folders, setFolders] = useState<SharedFolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [serverPort, setServerPort] = useState(8765);
 
   useEffect(() => {
-    loadSettings();
+    loadData();
   }, []);
 
-  const loadSettings = async () => {
+  const loadData = async () => {
     try {
+      // Load settings
       const settings = await window.electronAPI.getSettings();
       setShareEnabled(settings.shareEnabled as boolean);
-      // Folders will be loaded from database via IPC
+      setServerPort((settings.serverPort as number) || 8765);
+
+      // Load shared folders from database
+      const sharedFolders = await window.electronAPI.getSharedFolders();
+      setFolders(sharedFolders);
+
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      console.error('Failed to load data:', error);
       setIsLoading(false);
     }
   };
@@ -32,30 +39,40 @@ function SharePage() {
     const newValue = !shareEnabled;
     setShareEnabled(newValue);
     await window.electronAPI.saveSettings({ shareEnabled: newValue });
+
+    // Restart server if enabling
+    if (newValue) {
+      await window.electronAPI.restartServer(serverPort);
+    }
   };
 
   const handleAddFolder = async () => {
     const folderPath = await window.electronAPI.selectFolder();
     if (folderPath) {
-      // Add folder via IPC (to be implemented)
-      const newFolder: SharedFolder = {
-        id: Date.now().toString(),
-        path: folderPath,
-        alias: folderPath.split(/[/\\]/).pop() || folderPath,
-        enabled: true,
-      };
-      setFolders([...folders, newFolder]);
+      // Add folder to database via IPC
+      const result = await window.electronAPI.addSharedFolder(folderPath);
+      if (result.success && result.folder) {
+        setFolders([...folders, result.folder]);
+      } else {
+        console.error('Failed to add folder:', result.error);
+      }
     }
   };
 
-  const handleRemoveFolder = (folderId: string) => {
-    setFolders(folders.filter((f) => f.id !== folderId));
+  const handleRemoveFolder = async (folderId: string) => {
+    const result = await window.electronAPI.removeSharedFolder(folderId);
+    if (result.success) {
+      setFolders(folders.filter((f) => f.id !== folderId));
+    }
   };
 
-  const handleToggleFolder = (folderId: string) => {
-    setFolders(
-      folders.map((f) => (f.id === folderId ? { ...f, enabled: !f.enabled } : f))
-    );
+  const handleToggleFolder = async (folderId: string) => {
+    const result = await window.electronAPI.toggleFolderEnabled(folderId);
+    if (result.success) {
+      setFolders(
+        folders.map((f) => (f.id === folderId ? { ...f, enabled: !f.enabled } : f))
+      );
+    }
   };
 
   if (isLoading) {
@@ -110,7 +127,7 @@ function SharePage() {
               <div key={folder.id} className="file-item">
                 <div className="icon">📁</div>
                 <div className="info">
-                  <div className="name">{folder.alias}</div>
+                  <div className="name">{folder.alias || folder.path}</div>
                   <div className="meta">{folder.path}</div>
                 </div>
                 <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -142,7 +159,10 @@ function SharePage() {
               <span style={{ color: 'var(--success-color)' }}>Running</span>
             </div>
             <div>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Port:</span> 8765
+              <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Port:</span> {serverPort}
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Shared Folders:</span> {folders.filter(f => f.enabled).length}
             </div>
             <div>
               <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>

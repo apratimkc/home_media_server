@@ -9,6 +9,11 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        onstart(args) {
+          // Clear ELECTRON_RUN_AS_NODE to prevent running as Node.js
+          delete process.env.ELECTRON_RUN_AS_NODE;
+          args.startup();
+        },
         vite: {
           build: {
             outDir: 'dist-electron',

@@ -1,5 +1,23 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// Shared folder type
+interface SharedFolder {
+  id: string;
+  path: string;
+  alias: string | null;
+  enabled: boolean;
+  addedAt: Date;
+}
+
+// Device type
+interface DiscoveredDevice {
+  id: string;
+  name: string;
+  ip: string;
+  port: number;
+  platform: 'windows' | 'android';
+}
+
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
   // Open file with VLC
@@ -16,8 +34,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Server control
   restartServer: (port: number) => ipcRenderer.invoke('restart-server', port),
 
+  // Shared folders
+  getSharedFolders: () => ipcRenderer.invoke('get-shared-folders'),
+  addSharedFolder: (folderPath: string, alias?: string) =>
+    ipcRenderer.invoke('add-shared-folder', folderPath, alias),
+  removeSharedFolder: (folderId: string) =>
+    ipcRenderer.invoke('remove-shared-folder', folderId),
+  updateSharedFolder: (folderId: string, updates: { alias?: string; enabled?: boolean }) =>
+    ipcRenderer.invoke('update-shared-folder', folderId, updates),
+  toggleFolderEnabled: (folderId: string) =>
+    ipcRenderer.invoke('toggle-folder-enabled', folderId),
+
+  // Device discovery
+  getDiscoveredDevices: () => ipcRenderer.invoke('get-discovered-devices'),
+
   // Listen for events from main process
-  onDeviceDiscovered: (callback: (device: unknown) => void) => {
+  onDeviceDiscovered: (callback: (device: DiscoveredDevice) => void) => {
     ipcRenderer.on('device-discovered', (_event, device) => callback(device));
   },
   onDeviceRemoved: (callback: (deviceId: string) => void) => {
@@ -41,7 +73,13 @@ declare global {
       getSettings: () => Promise<Record<string, unknown>>;
       saveSettings: (settings: Record<string, unknown>) => Promise<{ success: boolean }>;
       restartServer: (port: number) => Promise<{ success: boolean }>;
-      onDeviceDiscovered: (callback: (device: unknown) => void) => void;
+      getSharedFolders: () => Promise<SharedFolder[]>;
+      addSharedFolder: (folderPath: string, alias?: string) => Promise<{ success: boolean; folder?: SharedFolder; error?: string }>;
+      removeSharedFolder: (folderId: string) => Promise<{ success: boolean }>;
+      updateSharedFolder: (folderId: string, updates: { alias?: string; enabled?: boolean }) => Promise<{ success: boolean }>;
+      toggleFolderEnabled: (folderId: string) => Promise<{ success: boolean }>;
+      getDiscoveredDevices: () => Promise<DiscoveredDevice[]>;
+      onDeviceDiscovered: (callback: (device: DiscoveredDevice) => void) => void;
       onDeviceRemoved: (callback: (deviceId: string) => void) => void;
       onDownloadProgress: (
         callback: (downloadId: string, progress: number, downloaded: number) => void

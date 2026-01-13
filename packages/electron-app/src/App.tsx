@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { HashRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { useDevicesStore } from '@home-media-server/shared';
 import DiscoverPage from './pages/Discover';
 import SharePage from './pages/Share';
@@ -22,8 +22,18 @@ function App() {
       removeDevice(deviceId);
     });
 
-    // Load settings
-    window.electronAPI.getSettings().then(() => {
+    // Load settings and existing discovered devices
+    Promise.all([
+      window.electronAPI.getSettings(),
+      window.electronAPI.getDiscoveredDevices(),
+    ]).then(([_settings, devices]) => {
+      // Add already discovered devices to the store
+      devices.forEach((device) => {
+        addDevice({
+          ...device,
+          isOnline: true,
+        } as Parameters<typeof addDevice>[0]);
+      });
       setIsLoading(false);
     });
   }, [addDevice, removeDevice]);
@@ -38,7 +48,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="app">
         <nav className="sidebar">
           <div className="logo">
@@ -80,7 +90,7 @@ function App() {
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
