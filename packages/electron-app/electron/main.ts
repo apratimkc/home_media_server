@@ -13,6 +13,9 @@ import {
   updateSharedFolder,
   toggleFolderEnabled,
 } from './database/sharedFolders';
+import * as downloadManager from './services/downloadManager';
+import * as autoDownloadManager from './services/autoDownloadManager';
+import * as autoDeleteService from './services/autoDeleteService';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -89,6 +92,14 @@ app.whenReady().then(async () => {
   // Create main window
   createWindow();
 
+  // Initialize download manager (must be after window creation)
+  if (mainWindow) {
+    downloadManager.initDownloadManager(mainWindow);
+  }
+
+  // Start auto-delete scheduler
+  autoDeleteService.startScheduler();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -105,6 +116,8 @@ app.on('window-all-closed', () => {
 
 // Cleanup on quit
 app.on('before-quit', async () => {
+  downloadManager.cleanup();
+  autoDeleteService.stopScheduler();
   stopMdnsService();
   await stopServer();
 });
@@ -220,4 +233,154 @@ ipcMain.handle('toggle-folder-enabled', (_event, folderId: string) => {
 // Get discovered devices
 ipcMain.handle('get-discovered-devices', () => {
   return getDiscoveredDevices();
+});
+
+// ============================================================================
+// Download IPC Handlers
+// ============================================================================
+
+// Start a new download
+ipcMain.handle('start-download', async (_event, params: {
+  fileId: string;
+  fileName: string;
+  sourceDeviceId: string;
+  sourceDeviceName: string;
+  sourceDeviceIp: string;
+  sourceDevicePort: number;
+  remotePath: string;
+  totalBytes: number;
+  isAutoDownload?: boolean;
+}) => {
+  try {
+    const download = await downloadManager.startDownload(params);
+    return { success: true, download };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Pause a download
+ipcMain.handle('pause-download', (_event, downloadId: string) => {
+  const success = downloadManager.pauseDownload(downloadId);
+  return { success };
+});
+
+// Resume a download
+ipcMain.handle('resume-download', (_event, downloadId: string) => {
+  const success = downloadManager.resumeDownload(downloadId);
+  return { success };
+});
+
+// Cancel a download
+ipcMain.handle('cancel-download', (_event, downloadId: string) => {
+  const success = downloadManager.cancelDownload(downloadId);
+  return { success };
+});
+
+// Retry a failed download
+ipcMain.handle('retry-download', (_event, downloadId: string) => {
+  const success = downloadManager.retryDownload(downloadId);
+  return { success };
+});
+
+// Delete a download (file and record)
+ipcMain.handle('delete-download', (_event, downloadId: string) => {
+  const success = downloadManager.deleteDownload(downloadId);
+  return { success };
+});
+
+// Get all downloads
+ipcMain.handle('get-downloads', () => {
+  return downloadManager.getAllDownloads();
+});
+
+// Get a single download
+ipcMain.handle('get-download', (_event, downloadId: string) => {
+  return downloadManager.getDownload(downloadId);
+});
+
+// Open a downloaded file with VLC
+ipcMain.handle('open-download-with-vlc', async (_event, downloadId: string) => {
+  const download = downloadManager.getDownload(downloadId);
+  if (!download || !download.localPath) {
+    return { success: false, error: 'Download not found or not completed' };
+  }
+
+  // Use the existing VLC handler with local file path
+  try {
+    const vlcPaths = [
+      'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',
+      'C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe',
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'VideoLAN', 'VLC', 'vlc.exe'),
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'VideoLAN', 'VLC', 'vlc.exe'),
+    ];
+
+    let vlcPath: string | null = null;
+    for (const pathToCheck of vlcPaths) {
+      if (fs.existsSync(pathToCheck)) {
+        vlcPath = pathToCheck;
+        break;
+      }
+    }
+
+    if (vlcPath) {
+      spawn(vlcPath, [download.localPath], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+      return { success: true };
+    } else {
+      await shell.openPath(download.localPath);
+      return { success: true };
+    }
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// ============================================================================
+// Auto-Download IPC Handlers
+// ============================================================================
+
+// Set currently playing file (triggers auto-download)
+ipcMain.handle('set-playing-file', async (_event, params: {
+  fileId: string;
+  fileName: string;
+  deviceId: string;
+  deviceIp: string;
+  devicePort: number;
+  deviceName: string;
+}) => {
+  try {
+    await autoDownloadManager.setPlayingFile(params);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Get auto-download queue
+ipcMain.handle('get-auto-download-queue', () => {
+  return autoDownloadManager.getQueue();
+});
+
+// Clear auto-download queue
+ipcMain.handle('clear-auto-download-queue', () => {
+  autoDownloadManager.clearQueue();
+  return { success: true };
+});
+
+// ============================================================================
+// Auto-Delete IPC Handlers
+// ============================================================================
+
+// Run cleanup manually
+ipcMain.handle('run-cleanup', async () => {
+  const deleted = await autoDeleteService.runCleanup();
+  return { success: true, deletedCount: deleted };
+});
+
+// Get expired downloads count
+ipcMain.handle('get-expired-count', () => {
+  return autoDeleteService.getExpiredCount();
 });

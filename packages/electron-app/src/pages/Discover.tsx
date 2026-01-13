@@ -111,14 +111,41 @@ function DiscoverPage() {
       // Fallback: just open the URL
       window.open(streamUrl, '_blank');
     }
+
+    // Trigger auto-download for this file and next episodes
+    const ip = selectedDevice.id === 'localhost' ? '127.0.0.1' : selectedDevice.ip;
+    await window.electronAPI.setPlayingFile({
+      fileId: file.id,
+      fileName: file.name,
+      deviceId: selectedDevice.id,
+      deviceIp: ip,
+      devicePort: selectedDevice.port,
+      deviceName: selectedDevice.name,
+    });
   };
 
   const handleDownload = async (file: MediaFile) => {
     if (!apiClient || !selectedDevice) return;
 
-    const downloadUrl = apiClient.getDownloadUrl(file.id);
-    // Open download in browser/download manager
-    window.open(downloadUrl, '_blank');
+    // Use IPC to start download with progress tracking
+    const ip = selectedDevice.id === 'localhost' ? '127.0.0.1' : selectedDevice.ip;
+    const result = await window.electronAPI.startDownload({
+      fileId: file.id,
+      fileName: file.name,
+      sourceDeviceId: selectedDevice.id,
+      sourceDeviceName: selectedDevice.name,
+      sourceDeviceIp: ip,
+      sourceDevicePort: selectedDevice.port,
+      remotePath: file.path,
+      totalBytes: file.size || 0,
+    });
+
+    if (result.success) {
+      console.log('Download started:', result.download);
+    } else {
+      console.error('Failed to start download:', result.error);
+      alert('Failed to start download: ' + result.error);
+    }
   };
 
   const getFileIcon = (file: MediaFile): string => {

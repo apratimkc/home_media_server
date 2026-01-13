@@ -1,14 +1,97 @@
-import { useDownloadsStore, formatFileSize } from '@home-media-server/shared';
+import { useEffect, useState, useCallback } from 'react';
+import { formatFileSize } from '@home-media-server/shared';
+
+interface Download {
+  id: string;
+  fileId: string;
+  fileName: string;
+  sourceDeviceId: string;
+  sourceDeviceName: string;
+  remotePath: string;
+  localPath?: string;
+  totalBytes: number;
+  downloadedBytes: number;
+  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed';
+  progress: number;
+  startedAt?: string;
+  completedAt?: string;
+  expiresAt?: string;
+  isAutoDownload: boolean;
+  error?: string;
+}
 
 function DownloadsPage() {
-  const downloads = useDownloadsStore((state) => state.downloads);
-  const removeDownload = useDownloadsStore((state) => state.removeDownload);
-  const pauseDownload = useDownloadsStore((state) => state.pauseDownload);
-  const resumeDownload = useDownloadsStore((state) => state.resumeDownload);
-  const clearCompleted = useDownloadsStore((state) => state.clearCompleted);
+  const [downloads, setDownloads] = useState<Download[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load downloads from backend
+  const loadDownloads = useCallback(async () => {
+    try {
+      const data = await window.electronAPI.getDownloads();
+      setDownloads(data);
+    } catch (error) {
+      console.error('Failed to load downloads:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Set up event listeners
+  useEffect(() => {
+    loadDownloads();
+
+    // Listen for download events
+    window.electronAPI.onDownloadAdded((download) => {
+      setDownloads((prev) => [download, ...prev]);
+    });
+
+    window.electronAPI.onDownloadProgress((data) => {
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === data.id
+            ? { ...d, progress: data.progress, downloadedBytes: data.downloadedBytes, status: 'downloading' }
+            : d
+        )
+      );
+    });
+
+    window.electronAPI.onDownloadCompleted((download) => {
+      setDownloads((prev) =>
+        prev.map((d) => (d.id === download.id ? download : d))
+      );
+    });
+
+    window.electronAPI.onDownloadFailed((data) => {
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === data.id ? { ...d, status: 'failed', error: data.error } : d
+        )
+      );
+    });
+
+    window.electronAPI.onDownloadPaused((data) => {
+      setDownloads((prev) =>
+        prev.map((d) => (d.id === data.id ? { ...d, status: 'paused' } : d))
+      );
+    });
+
+    window.electronAPI.onDownloadResumed((data) => {
+      setDownloads((prev) =>
+        prev.map((d) => (d.id === data.id ? { ...d, status: 'queued' } : d))
+      );
+    });
+
+    window.electronAPI.onDownloadCancelled((data) => {
+      setDownloads((prev) => prev.filter((d) => d.id !== data.id));
+    });
+
+    window.electronAPI.onDownloadDeleted((data) => {
+      setDownloads((prev) => prev.filter((d) => d.id !== data.id));
+    });
+  }, [loadDownloads]);
 
   const activeDownloads = downloads.filter(
-    (d) => d.status === 'downloading' || d.status === 'queued'
+    (d) => d.status === 'downloading' || d.status === 'queued' || d.status === 'paused'
   );
   const completedDownloads = downloads.filter((d) => d.status === 'completed');
   const failedDownloads = downloads.filter((d) => d.status === 'failed');
@@ -30,7 +113,7 @@ function DownloadsPage() {
     }
   };
 
-  const formatExpiry = (expiresAt?: Date): string => {
+  const formatExpiry = (expiresAt?: string): string => {
     if (!expiresAt) return '';
     const now = new Date();
     const expiry = new Date(expiresAt);
@@ -40,12 +123,53 @@ function DownloadsPage() {
     return `Expires in ${days} days`;
   };
 
-  const openFile = (localPath?: string) => {
-    if (localPath) {
-      // Open file with VLC
-      window.electronAPI.openWithVLC(localPath);
+  const handlePause = async (downloadId: string) => {
+    await window.electronAPI.pauseDownload(downloadId);
+  };
+
+  const handleResume = async (downloadId: string) => {
+    await window.electronAPI.resumeDownload(downloadId);
+  };
+
+  const handleCancel = async (downloadId: string) => {
+    await window.electronAPI.cancelDownload(downloadId);
+  };
+
+  const handleRetry = async (downloadId: string) => {
+    await window.electronAPI.retryDownload(downloadId);
+  };
+
+  const handleDelete = async (downloadId: string) => {
+    await window.electronAPI.deleteDownload(downloadId);
+  };
+
+  const handlePlay = async (downloadId: string) => {
+    await window.electronAPI.openDownloadWithVLC(downloadId);
+  };
+
+  const handleClearCompleted = async () => {
+    for (const download of completedDownloads) {
+      await window.electronAPI.deleteDownload(download.id);
     }
   };
+
+  const handleRunCleanup = async () => {
+    const result = await window.electronAPI.runCleanup();
+    if (result.deletedCount > 0) {
+      loadDownloads();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="downloads-page">
+        <div className="page-header">
+          <h2>Downloads</h2>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="downloads-page">
@@ -76,27 +200,28 @@ function DownloadsPage() {
                 <div className="footer">
                   <span>
                     {formatFileSize(download.downloadedBytes)} / {formatFileSize(download.totalBytes)}
+                    {' '}({download.progress.toFixed(1)}%)
                   </span>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {download.status === 'downloading' && (
                       <button
                         className="btn btn-secondary btn-sm"
-                        onClick={() => pauseDownload(download.id)}
+                        onClick={() => handlePause(download.id)}
                       >
                         Pause
                       </button>
                     )}
-                    {download.status === 'paused' && (
+                    {(download.status === 'paused' || download.status === 'queued') && (
                       <button
                         className="btn btn-primary btn-sm"
-                        onClick={() => resumeDownload(download.id)}
+                        onClick={() => handleResume(download.id)}
                       >
-                        Resume
+                        {download.status === 'paused' ? 'Resume' : 'Start'}
                       </button>
                     )}
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => removeDownload(download.id)}
+                      onClick={() => handleCancel(download.id)}
                     >
                       Cancel
                     </button>
@@ -112,11 +237,18 @@ function DownloadsPage() {
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-header">
           <h3 className="card-title">Completed ({completedDownloads.length})</h3>
-          {completedDownloads.length > 0 && (
-            <button className="btn btn-secondary btn-sm" onClick={clearCompleted}>
-              Clear All
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {completedDownloads.length > 0 && (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={handleRunCleanup}>
+                  Clean Expired
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleClearCompleted}>
+                  Clear All
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {completedDownloads.length === 0 ? (
           <div className="empty-state" style={{ padding: 40 }}>
@@ -144,13 +276,13 @@ function DownloadsPage() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => openFile(download.localPath)}
+                      onClick={() => handlePlay(download.id)}
                     >
                       Play
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => removeDownload(download.id)}
+                      onClick={() => handleDelete(download.id)}
                     >
                       Delete
                     </button>
@@ -185,13 +317,13 @@ function DownloadsPage() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       className="btn btn-primary btn-sm"
-                      onClick={() => resumeDownload(download.id)}
+                      onClick={() => handleRetry(download.id)}
                     >
                       Retry
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => removeDownload(download.id)}
+                      onClick={() => handleDelete(download.id)}
                     >
                       Remove
                     </button>
