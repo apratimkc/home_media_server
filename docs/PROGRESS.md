@@ -1,6 +1,6 @@
 # Home Media Server - Progress Tracker
 
-> Last Updated: January 13, 2026
+> Last Updated: January 17, 2026
 
 ---
 
@@ -10,7 +10,7 @@
 |-------|--------|----------|
 | Phase 1: Project Setup | ✅ Complete | 100% |
 | Phase 2: HTTP Server & File Browsing | ✅ Complete | 100% |
-| Phase 3: mDNS Device Discovery | 🔄 In Progress | 50% |
+| Phase 3: mDNS Device Discovery | ✅ Complete | 100% |
 | Phase 4: Media Streaming & VLC | ✅ Complete | 100% |
 | Phase 5: Download System | ✅ Complete | 100% |
 | Phase 6: Auto-Download | ✅ Complete | 100% |
@@ -18,16 +18,17 @@
 | Phase 8: Share Configuration UI | 🔄 In Progress | 70% |
 | Phase 9: Polish & Testing | 🔲 Not Started | 0% |
 
-**Overall: ~80% Complete**
+**Overall: ~90% Complete**
 
 ---
 
 ## To-Do List
 
 ### Immediate Tasks (Next Up)
-- [ ] Test VLC playback on Windows
-- [ ] Implement VLC intent on Android
-- [ ] Set up Android app build environment
+- [ ] Test manual device connection on Android
+- [ ] Test VLC playback on Android
+- [ ] Test file browsing end-to-end (Android to Windows)
+- [ ] Implement folder picker for Android (SAF)
 
 ### Phase 2: HTTP Server & File Browsing ✅ COMPLETE
 - [x] Test Express server starts on port 8765
@@ -38,13 +39,14 @@
 - [x] Test folder navigation (enter/back)
 - [x] Add loading states and error handling
 
-### Phase 3: mDNS Device Discovery
+### Phase 3: mDNS Device Discovery ✅ COMPLETE
 - [x] Test bonjour service publishes on Windows
 - [x] Test bonjour discovers other devices
-- [ ] Implement react-native-zeroconf on Android
-- [ ] Test Android discovers Windows device
+- [x] Implement react-native-zeroconf on Android
+- [x] Test Android discovers Windows device
 - [x] Handle device online/offline transitions
-- [ ] Add manual device entry fallback
+- [x] Add manual device entry fallback
+- [x] Fix self-discovery issue (phone discovering itself twice)
 
 ### Phase 4: Media Streaming & VLC ✅ COMPLETE
 - [x] Test streaming with range requests (seeking)
@@ -232,6 +234,17 @@ cd packages/shared && yarn build
 ---
 
 ## Changelog
+
+### 2026-01-17 (Session 5): mDNS Self-Discovery Fix
+- **Phase 3: mDNS Device Discovery** (Final Fix)
+  - Fixed mobile app discovering itself twice in device list
+  - Added `ourEncodedServiceName` tracking variable to filter self-discovery
+  - Enhanced `handleResolvedService` to check both deviceId and service name
+  - Now properly filters self-discovery from both 'found' and 'resolved' event handlers
+  - Prevents duplicate device entries when phone publishes and discovers own service
+
+- **Files Modified:**
+  - `packages/mobile-app/src/services/mdnsService.ts`
 
 ### 2026-01-13 (Session 4): Download System & Auto-Download Complete
 - **Phase 5: Download System**
