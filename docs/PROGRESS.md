@@ -47,6 +47,8 @@
 - [x] Handle device online/offline transitions
 - [x] Add manual device entry fallback
 - [x] Fix self-discovery issue (phone discovering itself twice)
+- [x] Fix duplicate device entries (PC appearing twice, Android appearing twice)
+- [x] Filter temporary Android discovery services
 
 ### Phase 4: Media Streaming & VLC ✅ COMPLETE
 - [x] Test streaming with range requests (seeking)
@@ -234,6 +236,24 @@ cd packages/shared && yarn build
 ---
 
 ## Changelog
+
+### 2026-01-17 (Session 6): Device Deduplication Fix
+- **Phase 3: mDNS Device Discovery** (Deduplication Fix)
+  - Fixed Electron app showing 4 devices instead of 2 (duplicate entries)
+  - Added IP-based self-filtering to prevent PC from discovering itself via mDNS
+  - Added IP-based deduplication to prefer proper display names over encoded service names
+  - Added filtering for temporary Android services (used for IP discovery)
+  - Now correctly shows only unique devices with proper names
+
+- **Changes Made:**
+  - Added `ourLocalIp` variable to track our own IP address
+  - Filter devices matching our IP to prevent self-discovery
+  - Deduplicate devices by IP:port combination
+  - Prefer display names without `_temp_` prefix or encoded format
+  - Skip services with `_temp_` prefix or `temp: 'true'` TXT record
+
+- **Files Modified:**
+  - `packages/electron-app/electron/services/mdnsService.ts`
 
 ### 2026-01-17 (Session 5): mDNS Self-Discovery Fix
 - **Phase 3: mDNS Device Discovery** (Final Fix)
